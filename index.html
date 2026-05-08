@@ -285,6 +285,45 @@
       align-items: center;
       gap: 16px;
       margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .section-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .score-filter {
+      display: grid;
+      gap: 6px;
+      min-width: min(360px, 100%);
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(111, 182, 255, 0.16);
+      background: rgba(6, 18, 33, 0.72);
+    }
+
+    .score-filter-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .score-filter-value {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .score-filter input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
     }
 
     .section-title {
@@ -299,6 +338,81 @@
     .results {
       display: grid;
       gap: 14px;
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px solid rgba(111, 182, 255, 0.16);
+      border-radius: 18px;
+      background: rgba(6, 18, 33, 0.72);
+      flex-wrap: wrap;
+    }
+
+    .pagination-info {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .pagination-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pagination-button {
+      border: 1px solid rgba(111, 182, 255, 0.2);
+      border-radius: 14px;
+      padding: 10px 14px;
+      background: rgba(7, 20, 35, 0.9);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+    }
+
+    .pagination-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .pagination-pages {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .page-pill {
+      min-width: 42px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(111, 182, 255, 0.2);
+      background: rgba(7, 20, 35, 0.78);
+      color: var(--muted);
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+    }
+
+    .page-pill:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      color: var(--text);
+    }
+
+    .page-pill.active {
+      color: #04101d;
+      background: linear-gradient(135deg, var(--accent), #84f0ff);
+      border-color: transparent;
+      font-weight: 700;
     }
 
     .paper-card {
@@ -495,6 +609,19 @@
       .stat-grid {
         grid-template-columns: 1fr 1fr;
       }
+
+      .pagination {
+        padding: 12px;
+      }
+
+      .pagination-actions,
+      .pagination-pages {
+        width: 100%;
+      }
+
+      .pagination-button {
+        flex: 1 1 0;
+      }
     }
   </style>
 </head>
@@ -565,9 +692,26 @@
     <section class="section">
       <div class="section-bar">
         <div class="section-title">检索结果</div>
-        <div class="section-note" id="resultSummary">默认按 ID 展示全部论文</div>
+        <div class="section-controls">
+          <div class="score-filter">
+            <div class="score-filter-head">
+              <span>最低分阈值</span>
+              <span class="score-filter-value" id="scoreFilterValue">0%</span>
+            </div>
+            <input id="scoreFilter" type="range" min="0" max="100" value="80" step="1">
+          </div>
+          <div class="section-note" id="resultSummary">默认按 ID 展示全部论文</div>
+        </div>
       </div>
       <div class="results" id="results"></div>
+      <div class="pagination" id="pagination" hidden>
+        <div class="pagination-info" id="paginationInfo"></div>
+        <div class="pagination-actions">
+          <button class="pagination-button" id="prevPageButton" type="button">上一页</button>
+          <div class="pagination-pages" id="paginationPages"></div>
+          <button class="pagination-button" id="nextPageButton" type="button">下一页</button>
+        </div>
+      </div>
     </section>
 
     <div class="footer">Built for local browsing · fuzzy retrieval score = title + author + token + acronym + subsequence</div>
@@ -575,11 +719,13 @@
 
   <script>
     const DATA_FILE = "icml_2026_paper.txt";
-    const MAX_RENDERED_RESULTS = 250;
+    const PAGE_SIZE = 12;
     let papers = [];
 
     const state = {
-      query: ""
+      query: "",
+      page: 1,
+      scoreFilter: 80
     };
 
     const STOP_WORDS = new Set([
@@ -599,6 +745,13 @@
     const clearButtonEl = document.getElementById("clearButton");
     const resultSummaryEl = document.getElementById("resultSummary");
     const searchMetaEl = document.getElementById("searchMeta");
+    const scoreFilterEl = document.getElementById("scoreFilter");
+    const scoreFilterValueEl = document.getElementById("scoreFilterValue");
+    const paginationEl = document.getElementById("pagination");
+    const paginationInfoEl = document.getElementById("paginationInfo");
+    const paginationPagesEl = document.getElementById("paginationPages");
+    const prevPageButtonEl = document.getElementById("prevPageButton");
+    const nextPageButtonEl = document.getElementById("nextPageButton");
 
     function normalize(text) {
       return (text || "")
@@ -1134,27 +1287,58 @@
 
     function render() {
       const query = state.query.trim();
-      const matches = papers
+      const scoredMatches = papers
         .map((paper) => ({ paper, match: scorePaper(paper, query) }))
-        .filter(({ match }) => !query || match.score > 0)
         .sort((a, b) => {
           if (!query) return a.paper.id - b.paper.id;
           if (b.match.score !== a.match.score) return b.match.score - a.match.score;
           return a.paper.id - b.paper.id;
         });
-      const visibleMatches = matches.slice(0, MAX_RENDERED_RESULTS);
-      const hiddenCount = Math.max(0, matches.length - visibleMatches.length);
+      const queryMatches = scoredMatches.filter(({ match }) => !query || match.score > 0);
+      const maxScore = queryMatches.length ? Math.max(...queryMatches.map(({ match }) => match.score)) : 0;
+      const threshold = query && maxScore > 0 ? (maxScore * state.scoreFilter) / 100 : 0;
+      const matches = queryMatches.filter(({ match }) => !query || match.score >= threshold);
+      const totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+      state.page = Math.min(Math.max(1, state.page), totalPages);
+      const startIndex = (state.page - 1) * PAGE_SIZE;
+      const visibleMatches = matches.slice(startIndex, startIndex + PAGE_SIZE);
+
+      scoreFilterValueEl.textContent = query && maxScore > 0
+        ? `${state.scoreFilter}% · 过滤低于 ${Math.ceil(threshold)} 分`
+        : `${state.scoreFilter}%`;
 
       if (!query) {
-        resultSummaryEl.textContent = hiddenCount
-          ? `已加载全部 ${papers.length} 篇论文，当前展示前 ${visibleMatches.length} 篇`
-          : `默认展示全部 ${papers.length} 篇论文，输入关键词后会按相关度重新排序`;
+        resultSummaryEl.textContent = `默认展示全部 ${papers.length} 篇论文，当前第 ${state.page} / ${totalPages} 页`;
         searchMetaEl.textContent = `READY / ${papers.length} PAPERS INDEXED`;
       } else {
-        resultSummaryEl.textContent = hiddenCount
-          ? `查询 "${query}" 命中 ${matches.length} 篇论文，展示相关度最高的 ${visibleMatches.length} 篇`
-          : `查询 "${query}" 命中 ${matches.length} 篇论文，结果按模糊相关度排序`;
+        resultSummaryEl.textContent = `查询 "${query}" 命中 ${queryMatches.length} 篇论文，筛后保留 ${matches.length} 篇，当前第 ${state.page} / ${totalPages} 页`;
         searchMetaEl.textContent = `QUERY / ${matches.length} MATCHES`;
+      }
+
+      paginationEl.hidden = matches.length <= PAGE_SIZE;
+      paginationInfoEl.textContent = matches.length
+        ? `第 ${state.page} 页 / 共 ${totalPages} 页 · 每页 ${PAGE_SIZE} 篇 · 共 ${matches.length} 篇`
+        : "";
+      prevPageButtonEl.disabled = state.page <= 1;
+      nextPageButtonEl.disabled = state.page >= totalPages;
+      paginationPagesEl.innerHTML = "";
+      if (matches.length > PAGE_SIZE) {
+        const windowSize = 5;
+        const halfWindow = Math.floor(windowSize / 2);
+        let startPage = Math.max(1, state.page - halfWindow);
+        let endPage = Math.min(totalPages, startPage + windowSize - 1);
+        startPage = Math.max(1, endPage - windowSize + 1);
+        for (let page = startPage; page <= endPage; page += 1) {
+          const pageButton = document.createElement("button");
+          pageButton.type = "button";
+          pageButton.className = `page-pill${page === state.page ? " active" : ""}`;
+          pageButton.textContent = String(page);
+          pageButton.addEventListener("click", () => {
+            state.page = page;
+            render();
+          });
+          paginationPagesEl.appendChild(pageButton);
+        }
       }
 
       if (!matches.length) {
@@ -1172,9 +1356,16 @@
 
     function setQuery(query) {
       state.query = query;
+      state.page = 1;
       searchInputEl.value = query;
       render();
     }
+
+    scoreFilterEl.addEventListener("input", (event) => {
+      state.scoreFilter = Number(event.target.value) || 0;
+      state.page = 1;
+      render();
+    });
 
     searchInputEl.addEventListener("input", (event) => {
       state.query = event.target.value;
@@ -1184,6 +1375,16 @@
     clearButtonEl.addEventListener("click", () => {
       setQuery("");
       searchInputEl.focus();
+    });
+
+    prevPageButtonEl.addEventListener("click", () => {
+      state.page -= 1;
+      render();
+    });
+
+    nextPageButtonEl.addEventListener("click", () => {
+      state.page += 1;
+      render();
     });
 
     document.querySelectorAll("[data-query]").forEach((button) => {

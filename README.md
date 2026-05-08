@@ -1,2 +1,26 @@
-# ICML26_paperlist
-Collect ICML 2026 papers with support for more comprehensive search strategies.
+# ICML 2026 Paper List 🚀
+
+一个面向 ICML 2026 的论文雷达页 ✨
+
+它把论文标题、作者、摘要收拢到一个清晰的入口，让你不必在官网里反复搜索，也能快速扫方向、找主题、比对相关工作 🔎
+
+## 特点 💡
+
+- 一页式浏览 ICML 2026 论文列表 📄
+- 支持标题、作者、摘要的模糊搜索 🧠
+- 支持片段匹配、缩写匹配和轻微拼写误差 🪄
+
+## 如何使用 🛠️
+
+1. 确保当前目录下有 `index.html` 和 `icml_2026_paper.txt`
+2. 直接打开 `index.html`
+3. 输入关键词开始检索
+   
+## 数据文件 📦
+
+- `icml_2026_papers.txt`：论文列表
+
+## 下一步 🧭
+
+- 等待后续补全 abstract 抓取与入库 📥
+- 让摘要更稳定地进入检索权重 🎯

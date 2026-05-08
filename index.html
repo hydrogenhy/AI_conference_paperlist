@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICML 2026 Paper Radar</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: rgba(10, 24, 42, 0.78);
+      --panel: rgba(13, 29, 49, 0.88);
+      --panel-strong: rgba(15, 36, 60, 0.94);
+      --line: rgba(84, 188, 255, 0.2);
+      --line-strong: rgba(84, 188, 255, 0.45);
+      --text: #e7f3ff;
+      --muted: #8ea7c2;
+      --accent: #4fd1ff;
+      --accent-2: #00ffa3;
+      --accent-3: #ffc857;
+      --danger: #ff7b72;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Bahnschrift", "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(0, 255, 163, 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(79, 209, 255, 0.12), transparent 24%),
+        linear-gradient(180deg, #04101d 0%, #07111f 42%, #091725 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(99, 179, 237, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 179, 237, 0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 85%);
+    }
+
+    .shell {
+      width: min(1200px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, rgba(9, 25, 42, 0.95), rgba(8, 17, 31, 0.88)),
+        linear-gradient(135deg, rgba(79, 209, 255, 0.04), rgba(0, 255, 163, 0.03));
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      right: -80px;
+      top: -130px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79, 209, 255, 0.18), transparent 68%);
+      filter: blur(4px);
+    }
+
+    .eyebrow,
+    .stat-label,
+    .search-meta,
+    .badge,
+    .empty-hint,
+    .paper-meta,
+    .score-tag {
+      font-family: Consolas, "Courier New", monospace;
+      letter-spacing: 0.04em;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--accent);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 26px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent));
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(34px, 5vw, 62px);
+      line-height: 0.98;
+      letter-spacing: -0.03em;
+      max-width: 760px;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) minmax(280px, 0.9fr);
+      gap: 18px;
+      margin-top: 28px;
+    }
+
+    .panel {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .search-panel {
+      padding: 18px;
+    }
+
+    .search-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .search-head h2,
+    .stat-card h3,
+    .section-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .search-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 18px 120px 18px 18px;
+      border: 1px solid rgba(112, 190, 255, 0.25);
+      border-radius: 18px;
+      background: rgba(6, 18, 33, 0.86);
+      color: var(--text);
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(79, 209, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .search-box button {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      bottom: 8px;
+      border: 0;
+      border-radius: 14px;
+      padding: 0 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #04101d;
+      background: linear-gradient(135deg, var(--accent), #84f0ff);
+    }
+
+    .search-tools {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .suggestions,
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(111, 182, 255, 0.18);
+      background: rgba(7, 20, 35, 0.78);
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    }
+
+    .badge:hover {
+      border-color: var(--line-strong);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .stat-card {
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      background:
+        linear-gradient(180deg, rgba(15, 36, 60, 0.96), rgba(8, 17, 31, 0.92));
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(115, 197, 255, 0.14);
+      background: rgba(5, 16, 28, 0.7);
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-2);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .section {
+      margin-top: 22px;
+    }
+
+    .section-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: 20px;
+    }
+
+    .section-note {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .results {
+      display: grid;
+      gap: 14px;
+    }
+
+    .paper-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(12, 28, 47, 0.92), rgba(8, 16, 29, 0.86));
+      box-shadow: 0 18px 52px rgba(0, 0, 0, 0.22);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .paper-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(79, 209, 255, 0.36);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    .paper-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .paper-id {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(79, 209, 255, 0.08);
+      border: 1px solid rgba(79, 209, 255, 0.18);
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .paper-title {
+      margin: 0;
+      font-size: clamp(20px, 3vw, 28px);
+      line-height: 1.18;
+    }
+
+    .paper-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .paper-title a:hover {
+      color: var(--accent);
+    }
+
+    .paper-meta {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .paper-authors,
+    .paper-abstract {
+      margin: 12px 0 0;
+      color: #d8e6f5;
+      line-height: 1.75;
+    }
+
+    .paper-abstract.dimmed {
+      color: #8ba2ba;
+      font-style: italic;
+    }
+
+    .score-wrap {
+      min-width: 112px;
+      display: grid;
+      justify-items: end;
+      gap: 10px;
+    }
+
+    .score-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 10px;
+      border-radius: 14px;
+      min-width: 74px;
+      background: rgba(0, 255, 163, 0.08);
+      border: 1px solid rgba(0, 255, 163, 0.18);
+      color: var(--accent-2);
+      font-size: 12px;
+    }
+
+    .match-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .reason-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 200, 87, 0.08);
+      border: 1px solid rgba(255, 200, 87, 0.16);
+      color: #ffe4a3;
+      font-size: 12px;
+    }
+
+    .empty-state {
+      padding: 36px 24px;
+      text-align: center;
+      border-radius: 22px;
+      border: 1px dashed rgba(105, 184, 255, 0.26);
+      background: rgba(6, 18, 31, 0.66);
+      color: var(--muted);
+    }
+
+    .empty-state strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    mark {
+      padding: 0 0.18em;
+      border-radius: 0.2em;
+      color: #021018;
+      background: linear-gradient(135deg, #67d6ff, #9dffd6);
+    }
+
+    .subseq-mark {
+      display: inline-block;
+      padding: 0 0.08em;
+      border-radius: 0.18em;
+      color: #fff6d9;
+      background: rgba(255, 200, 87, 0.12);
+      box-shadow: inset 0 -1px 0 rgba(255, 200, 87, 0.55);
+    }
+
+    .fuzzy-mark {
+      padding: 0 0.14em;
+      border-radius: 0.18em;
+      color: #06121f;
+      background: linear-gradient(135deg, #ffc857, #ffe08a);
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .paper-top,
+      .section-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .score-wrap {
+        justify-items: start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        width: min(100% - 20px, 1200px);
+        padding-top: 18px;
+      }
+
+      .hero {
+        padding: 18px;
+        border-radius: 24px;
+      }
+
+      .search-box input {
+        padding-right: 18px;
+      }
+
+      .search-box button {
+        position: static;
+        width: 100%;
+        margin-top: 10px;
+        height: 46px;
+      }
+
+      .stat-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">ICML 2026 / Paper Radar</div>
+      <h1>ICML2026 论文检索页</h1>
+      <p>
+        针对官网精确查找不方便的问题，这个页面会从本地文本文件读取论文列表，并提供标题、缩写、片段词和轻微拼写误差都能工作的模糊搜索。
+        适合快速扫论文、找方向。
+      </p>
+
+      <div class="hero-grid">
+        <div class="panel search-panel">
+          <div class="search-head">
+            <h2>模糊搜索控制台</h2>
+            <div class="search-meta" id="searchMeta">LOADING / icml_2026_papers.txt</div>
+          </div>
+
+          <div class="search-box">
+            <input id="searchInput" type="text" placeholder="试试：diffusion / bottleneck / info flow / policy opt">
+            <button id="clearButton" type="button">清空</button>
+          </div>
+
+          <div class="search-tools">
+            <div class="suggestions">
+              <button class="badge" data-query="diffusion" type="button">diffusion</button>
+              <button class="badge" data-query="bottleneck" type="button">bottleneck</button>
+              <button class="badge" data-query="tree policy" type="button">info flow</button>
+              <button class="badge" data-query="emotional circuit" type="button">policy opt</button>
+            </div>
+            <div class="legend">
+              <div class="badge">标题权重最高</div>
+              <div class="badge">支持片段匹配</div>
+              <div class="badge">支持缩写匹配</div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel stat-card">
+          <h3>数据摘要</h3>
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="stat-value" id="paperCount">0</div>
+              <div class="stat-label">papers</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="authorCount">0</div>
+              <div class="stat-label">unique authors</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="availableAbstractCount">0</div>
+              <div class="stat-label">abstract ready</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="keywordCount">0</div>
+              <div class="stat-label">keywords</div>
+            </div>
+          </div>
+          <p class="section-note">
+            当前列表来自 `icml_2026_papers.txt`，作者和摘要会自动补充并纳入检索权重。
+          </p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-bar">
+        <div class="section-title">检索结果</div>
+        <div class="section-note" id="resultSummary">默认按 ID 展示全部论文</div>
+      </div>
+      <div class="results" id="results"></div>
+    </section>
+
+    <div class="footer">Built for local browsing · fuzzy retrieval score = title + author + token + acronym + subsequence</div>
+  </main>
+
+  <script>
+    const DATA_FILE = "icml_2026_paper.txt";
+    const MAX_RENDERED_RESULTS = 250;
+    let papers = [];
+
+    const state = {
+      query: ""
+    };
+
+    const STOP_WORDS = new Set([
+      "a", "an", "and", "are", "as", "at", "by", "for", "from", "in", "into",
+      "is", "of", "on", "or", "the", "to", "via", "with",
+      "using", "use", "used", "based", "toward", "towards", "through",
+      "deep", "learning", "machine", "neural", "network", "networks",
+      "model", "models", "data", "dataset", "datasets",
+      "method", "methods", "algorithm", "algorithms", "approach", "approaches",
+      "framework", "frameworks", "system", "systems", "task", "tasks",
+      "large", "language", "vision", "efficient", "effective", "robust",
+      "scalable", "adaptive", "improved", "improving", "simple"
+    ]);
+
+    const resultsEl = document.getElementById("results");
+    const searchInputEl = document.getElementById("searchInput");
+    const clearButtonEl = document.getElementById("clearButton");
+    const resultSummaryEl = document.getElementById("resultSummary");
+    const searchMetaEl = document.getElementById("searchMeta");
+
+    function normalize(text) {
+      return (text || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, " ")
+        .replace(/[-_/]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function tokenize(text) {
+      return normalize(text).split(" ").filter(Boolean);
+    }
+
+    function unique(array) {
+      return [...new Set(array)];
+    }
+
+    function initials(text) {
+      return tokenize(text).map((token) => token[0]).join("");
+    }
+
+    function wordList(text) {
+      return unique(tokenize(text));
+    }
+
+    function compact(text) {
+      return normalize(text).replace(/\s+/g, "");
+    }
+
+    function scoringTokens(tokens) {
+      const useful = tokens.filter((token) => !STOP_WORDS.has(token));
+      return useful.length ? useful : tokens;
+    }
+
+    function fieldIncludesQuery(query, normalizedText) {
+      if (!query || !normalizedText) return false;
+      if (query.includes(" ")) return normalizedText.includes(query);
+      if (query.length <= 2) return tokenize(normalizedText).includes(query);
+      return normalizedText.includes(query);
+    }
+
+    function diceCoefficient(a, b) {
+      if (!a || !b) return 0;
+      if (a === b) return 1;
+      if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
+
+      const makeBigrams = (source) => {
+        const grams = new Map();
+        for (let i = 0; i < source.length - 1; i += 1) {
+          const gram = source.slice(i, i + 2);
+          grams.set(gram, (grams.get(gram) || 0) + 1);
+        }
+        return grams;
+      };
+
+      const aGrams = makeBigrams(a);
+      const bGrams = makeBigrams(b);
+      let overlap = 0;
+
+      aGrams.forEach((count, gram) => {
+        if (bGrams.has(gram)) {
+          overlap += Math.min(count, bGrams.get(gram));
+        }
+      });
+
+      return (2 * overlap) / ((a.length - 1) + (b.length - 1));
+    }
+
+    function findCompactSubsequence(token, word) {
+      if (!token || !word) return null;
+      if (word.length < token.length) return null;
+
+      const indices = [];
+      let qi = 0;
+      let streak = 0;
+      let score = 0;
+
+      for (let i = 0; i < word.length && qi < token.length; i += 1) {
+        if (word[i] === token[qi]) {
+          indices.push(i);
+          qi += 1;
+          streak += 1;
+          score += 1 + streak * 0.35;
+        } else {
+          streak = 0;
+        }
+      }
+
+      if (qi !== token.length) return null;
+
+      const span = indices[indices.length - 1] - indices[0] + 1;
+      const gapBudget = span - token.length;
+      const edgeAnchoredAbbrev = token.length >= 4
+        && indices[0] === 0
+        && indices[indices.length - 1] === word.length - 1;
+      if (gapBudget > Math.max(3, token.length) && !edgeAnchoredAbbrev) return null;
+
+      return {
+        indices,
+        score: score / token.length
+      };
+    }
+
+    function subsequenceScore(query, text) {
+      if (!query || !text) return 0;
+      const tokens = scoringTokens(tokenize(query));
+      const words = wordList(text);
+      let total = 0;
+      let covered = 0;
+
+      for (const token of tokens) {
+        if (token.length <= 2) {
+          if (words.some((word) => word === token)) covered += 1;
+          continue;
+        }
+
+        if (words.some((word) => word.includes(token))) {
+          covered += 1;
+          continue;
+        }
+
+        let best = 0;
+        for (const word of words) {
+          const match = findCompactSubsequence(token, word);
+          if (match) {
+            best = Math.max(best, match.score);
+          }
+        }
+        if (best > 0) covered += 1;
+        total += best;
+      }
+
+      return tokens.length > 1 && covered < tokens.length ? 0 : total;
+    }
+
+    function tokenFieldScore(token, words) {
+      if (!token || !words.length) return 0;
+      let best = 0;
+      for (const word of words) {
+        if (word === token) {
+          best = Math.max(best, 24);
+          continue;
+        }
+        // Only allow query token -> indexed word prefix expansion.
+        // This keeps "diffus" -> "diffusion", but prevents "info" -> "in".
+        if (token.length >= 3 && word.length >= 4 && word.startsWith(token)) {
+          best = Math.max(best, 18);
+        }
+        const dice = diceCoefficient(token, word);
+        if (dice >= 0.92) best = Math.max(best, 16);
+        else if (dice >= 0.82) best = Math.max(best, 10);
+        else if (dice >= 0.72) best = Math.max(best, 6);
+      }
+      return best;
+    }
+
+    function orderedTokenBonus(tokens, text) {
+      const usefulTokens = scoringTokens(tokens);
+      if (usefulTokens.length < 2 || !text) return 0;
+
+      const words = tokenize(text);
+      let lastIndex = -1;
+      for (const token of usefulTokens) {
+        const index = words.findIndex((word, wordIndex) => {
+          if (wordIndex <= lastIndex) return false;
+          if (word === token) return true;
+          return token.length >= 3 && word.length >= 4 && word.startsWith(token);
+        });
+        if (index === -1) return 0;
+        lastIndex = index;
+      }
+      return 18;
+    }
+
+    function makeReasons(query, paper, scores) {
+      const reasons = [];
+      if (!query) return reasons;
+      if (scores.title >= 80) reasons.push("标题强匹配");
+      else if (scores.title > 0) reasons.push("标题命中");
+      if (scores.authors >= 48) reasons.push("作者强匹配");
+      else if (scores.authors > 0) reasons.push("作者命中");
+      if (scores.acronym > 0) reasons.push("缩写命中");
+      if (scores.subsequence > 0) reasons.push("模糊字符序命中");
+      if (scores.abstract > 0) reasons.push("摘要命中");
+      return unique(reasons);
+    }
+
+    function scorePaper(paper, rawQuery) {
+      const query = normalize(rawQuery);
+      if (!query) {
+        return {
+          score: 0,
+          reasons: [],
+          query,
+          scores: {}
+        };
+      }
+
+      const tokens = tokenize(query);
+      const title = normalize(paper.title);
+      const authors = normalize(paper.authors);
+      const abstract = normalize(paper.abstract === "error" ? "" : paper.abstract);
+      const titleWords = wordList(paper.title);
+      const authorWords = wordList(paper.authors);
+      const abstractWords = wordList(paper.abstract === "error" ? "" : paper.abstract);
+      const titleInitials = initials(paper.title);
+      const authorInitials = initials(paper.authors);
+
+      let titleScore = 0;
+      let authorScore = 0;
+      let abstractScore = 0;
+      let acronymScore = 0;
+      let subsequence = 0;
+
+      if (fieldIncludesQuery(query, title)) titleScore += 110;
+      if (fieldIncludesQuery(query, authors)) authorScore += 90;
+      if (fieldIncludesQuery(query, abstract)) abstractScore += 44;
+
+      titleScore += orderedTokenBonus(tokens, title);
+      authorScore += orderedTokenBonus(tokens, authors) * 0.7;
+      abstractScore += orderedTokenBonus(tokens, abstract) * 0.35;
+
+      for (const token of scoringTokens(tokens)) {
+        titleScore += tokenFieldScore(token, titleWords) * 1.35;
+        authorScore += tokenFieldScore(token, authorWords) * 1.05;
+        abstractScore += tokenFieldScore(token, abstractWords) * 0.55;
+      }
+
+      const compactQuery = compact(query);
+      if (compactQuery.length >= 2 && titleInitials.includes(compactQuery)) acronymScore += 38;
+      if (compactQuery.length >= 2 && authorInitials.includes(compactQuery)) acronymScore += 28;
+
+      subsequence += subsequenceScore(query, title) * 8;
+      subsequence += subsequenceScore(query, authors) * 5;
+
+      const total = titleScore + authorScore + abstractScore + acronymScore + subsequence;
+      const scores = {
+        title: titleScore,
+        authors: authorScore,
+        abstract: abstractScore,
+        acronym: acronymScore,
+        subsequence
+      };
+
+      return {
+        score: Number(total.toFixed(2)),
+        reasons: makeReasons(query, paper, scores),
+        query,
+        scores
+      };
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function safeExternalUrl(url) {
+      return /^https?:\/\//i.test(String(url || "")) ? escapeHtml(url) : "#";
+    }
+
+    function getWordRanges(text) {
+      const ranges = [];
+      const regex = /[A-Za-z0-9]+/g;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        ranges.push({
+          word: match[0].toLowerCase(),
+          start: match.index,
+          end: match.index + match[0].length
+        });
+      }
+      return ranges;
+    }
+
+    function getTokenRanges(text, query) {
+      const tokens = unique(tokenize(query)).sort((a, b) => b.length - a.length);
+      const ranges = [];
+      const wordRanges = getWordRanges(text);
+      for (const token of tokens) {
+        if (token.length <= 2) {
+          for (const range of wordRanges) {
+            if (range.word === token) {
+              ranges.push({ start: range.start, end: range.end, kind: "token" });
+            }
+          }
+          continue;
+        }
+
+        const safeToken = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(safeToken, "ig");
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          ranges.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            kind: "token"
+          });
+        }
+      }
+      return ranges;
+    }
+
+    function getSubsequenceIndices(text, token) {
+      const normalizedToken = compact(token);
+      if (!normalizedToken || normalizedToken.length <= 2) return [];
+
+      const ranges = getWordRanges(text);
+      if (ranges.some((range) => range.word.includes(normalizedToken))) return [];
+
+      let best = null;
+      for (const range of ranges) {
+        if (range.word.includes(normalizedToken)) continue;
+        const subseq = findCompactSubsequence(normalizedToken, range.word);
+        if (!subseq) continue;
+        if (!best || subseq.score > best.score) {
+          best = {
+            score: subseq.score,
+            indices: subseq.indices.map((index) => range.start + index)
+          };
+        }
+      }
+
+      return best ? best.indices : [];
+    }
+
+    function getFuzzyWordRanges(text, token) {
+      const normalizedToken = normalize(token);
+      if (!normalizedToken || normalizedToken.length <= 2) return [];
+
+      const ranges = [];
+      for (const range of getWordRanges(text)) {
+        if (range.word.includes(normalizedToken)) {
+          continue;
+        }
+
+        const score = tokenFieldScore(normalizedToken, [range.word]);
+        if (score > 0) {
+          ranges.push({
+            start: range.start,
+            end: range.end,
+            kind: "fuzzy"
+          });
+        }
+      }
+      return ranges;
+    }
+
+    function highlightText(text, query) {
+      if (!query) return escapeHtml(text);
+
+      const tokens = unique(tokenize(query)).sort((a, b) => b.length - a.length);
+      const chars = Array.from(text).map((char) => ({
+        char,
+        kind: null
+      }));
+
+      const tokenRanges = getTokenRanges(text, query);
+      for (const range of tokenRanges) {
+        for (let i = range.start; i < range.end; i += 1) {
+          chars[i].kind = "token";
+        }
+      }
+
+      for (const token of tokens) {
+        for (const range of getFuzzyWordRanges(text, token)) {
+          for (let i = range.start; i < range.end; i += 1) {
+            if (chars[i].kind !== "token") {
+              chars[i].kind = "fuzzy";
+            }
+          }
+        }
+      }
+
+      for (const token of tokens) {
+        if (getTokenRanges(text, token).length) continue;
+        for (const index of getSubsequenceIndices(text, token)) {
+          if (chars[index] && chars[index].kind !== "token" && chars[index].kind !== "fuzzy") {
+            chars[index].kind = "subseq";
+          }
+        }
+      }
+
+      let html = "";
+      let activeKind = null;
+      for (const item of chars) {
+        if (item.kind !== activeKind) {
+          if (activeKind === "token") html += "</mark>";
+          if (activeKind === "subseq") html += "</span>";
+          if (activeKind === "fuzzy") html += "</span>";
+          if (item.kind === "token") html += "<mark>";
+          if (item.kind === "subseq") html += '<span class="subseq-mark">';
+          if (item.kind === "fuzzy") html += '<span class="fuzzy-mark">';
+          activeKind = item.kind;
+        }
+        html += escapeHtml(item.char);
+      }
+      if (activeKind === "token") html += "</mark>";
+      if (activeKind === "subseq") html += "</span>";
+      if (activeKind === "fuzzy") html += "</span>";
+      return html;
+    }
+
+    function createCard(paper, match) {
+      const abstractMissing = !paper.abstract || paper.abstract === "NOT_FOUND";
+      const reasons = match.reasons.map((reason) => `<span class="reason-chip">${escapeHtml(reason)}</span>`).join("");
+      const displayAbstract = abstractMissing ? "摘要未提供，当前主要基于标题进行检索。" : paper.abstract;
+      const authorsHtml = paper.authors
+        ? `<p class="paper-authors"><strong>Authors:</strong> ${highlightText(paper.authors, state.query)}</p>`
+        : "";
+      const scoreHtml = state.query
+        ? `<div class="score-tag">score ${Math.round(match.score)}</div>`
+        : `<div class="score-tag">paper ${paper.id}</div>`;
+
+      return `
+        <article class="paper-card">
+          <div class="paper-top">
+            <div>
+              <div class="paper-id">ID ${paper.id}</div>
+              <h3 class="paper-title">
+                <a href="${safeExternalUrl(paper.link)}" target="_blank" rel="noreferrer noopener">${highlightText(paper.title, state.query)}</a>
+              </h3>
+              <div class="paper-meta">ICML 2026 · POSTER LINK</div>
+            </div>
+            <div class="score-wrap">
+              ${scoreHtml}
+            </div>
+          </div>
+          ${authorsHtml}
+          <p class="paper-abstract ${abstractMissing ? "dimmed" : ""}">
+            <strong>Abstract:</strong> ${highlightText(displayAbstract, state.query)}
+          </p>
+          ${reasons ? `<div class="match-reasons">${reasons}</div>` : ""}
+        </article>
+      `;
+    }
+
+    function getKeywordPool() {
+      const stop = new Set([
+        ...STOP_WORDS,
+        "how", "order", "free"
+      ]);
+      const words = [];
+      for (const paper of papers) {
+        for (const word of tokenize(paper.title)) {
+          if (word.length >= 5 && !stop.has(word)) words.push(word);
+        }
+      }
+      return unique(words);
+    }
+
+    function getField(block, name) {
+      const pattern = new RegExp(`^${name}:\\s*(.*)$`, "im");
+      const match = block.match(pattern);
+      return match ? match[1].trim() : "";
+    }
+
+    function parsePaperText(text) {
+      return text
+        .split(/^-{20,}\s*$/m)
+        .map((block, index) => {
+          const idText = getField(block, "ID");
+          const idNumber = Number.parseInt(idText, 10);
+          return {
+            id: Number.isFinite(idNumber) ? idNumber : index + 1,
+            title: getField(block, "Title"),
+            link: getField(block, "Link"),
+            authors: getField(block, "Authors"),
+            abstract: getField(block, "Abstract") || "error"
+          };
+        })
+        .filter((paper) => paper.title && paper.link);
+    }
+
+    function showLoadError(error) {
+      papers = [];
+      updateStats();
+      searchMetaEl.textContent = "LOAD FAILED / icml_2026_papers.txt";
+      resultSummaryEl.textContent = "论文数据加载失败";
+      resultsEl.innerHTML = `
+        <div class="empty-state">
+          <strong>无法读取 icml_2026_papers.txt</strong>
+          <div class="empty-hint">
+            ${escapeHtml(error.message || String(error))}
+            <br>
+            如果是直接双击打开 HTML，浏览器可能会拦截本地文件读取；请在当前目录启动一个本地 HTTP 服务后访问页面。
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadPapers() {
+      searchMetaEl.textContent = `LOADING / ${DATA_FILE}`;
+      resultSummaryEl.textContent = "正在读取论文数据";
+      resultsEl.innerHTML = `
+        <div class="empty-state">
+          <strong>正在加载论文列表</strong>
+          <div class="empty-hint">数据来自 ${DATA_FILE}</div>
+        </div>
+      `;
+
+      try {
+        const response = await fetch(DATA_FILE, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
+        const text = await response.text();
+        papers = parsePaperText(text);
+        updateStats();
+        render();
+      } catch (error) {
+        showLoadError(error);
+      }
+    }
+
+    function updateStats() {
+      const authorSet = new Set();
+      let abstractReady = 0;
+      for (const paper of papers) {
+        (paper.authors || "").split(",").map((name) => name.trim()).filter(Boolean).forEach((name) => authorSet.add(name));
+        if (paper.abstract && paper.abstract !== "error") abstractReady += 1;
+      }
+      document.getElementById("paperCount").textContent = String(papers.length);
+      document.getElementById("authorCount").textContent = String(authorSet.size);
+      document.getElementById("availableAbstractCount").textContent = String(abstractReady);
+      document.getElementById("keywordCount").textContent = String(getKeywordPool().length);
+    }
+
+    function render() {
+      const query = state.query.trim();
+      const matches = papers
+        .map((paper) => ({ paper, match: scorePaper(paper, query) }))
+        .filter(({ match }) => !query || match.score > 0)
+        .sort((a, b) => {
+          if (!query) return a.paper.id - b.paper.id;
+          if (b.match.score !== a.match.score) return b.match.score - a.match.score;
+          return a.paper.id - b.paper.id;
+        });
+      const visibleMatches = matches.slice(0, MAX_RENDERED_RESULTS);
+      const hiddenCount = Math.max(0, matches.length - visibleMatches.length);
+
+      if (!query) {
+        resultSummaryEl.textContent = hiddenCount
+          ? `已加载全部 ${papers.length} 篇论文，当前展示前 ${visibleMatches.length} 篇`
+          : `默认展示全部 ${papers.length} 篇论文，输入关键词后会按相关度重新排序`;
+        searchMetaEl.textContent = `READY / ${papers.length} PAPERS INDEXED`;
+      } else {
+        resultSummaryEl.textContent = hiddenCount
+          ? `查询 "${query}" 命中 ${matches.length} 篇论文，展示相关度最高的 ${visibleMatches.length} 篇`
+          : `查询 "${query}" 命中 ${matches.length} 篇论文，结果按模糊相关度排序`;
+        searchMetaEl.textContent = `QUERY / ${matches.length} MATCHES`;
+      }
+
+      if (!matches.length) {
+        resultsEl.innerHTML = `
+          <div class="empty-state">
+            <strong>没有找到足够接近的结果</strong>
+            <div class="empty-hint">可以尝试标题片段、缩写，或者更短一点的关键词。</div>
+          </div>
+        `;
+        return;
+      }
+
+      resultsEl.innerHTML = visibleMatches.map(({ paper, match }) => createCard(paper, match)).join("");
+    }
+
+    function setQuery(query) {
+      state.query = query;
+      searchInputEl.value = query;
+      render();
+    }
+
+    searchInputEl.addEventListener("input", (event) => {
+      state.query = event.target.value;
+      render();
+    });
+
+    clearButtonEl.addEventListener("click", () => {
+      setQuery("");
+      searchInputEl.focus();
+    });
+
+    document.querySelectorAll("[data-query]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setQuery(button.dataset.query || "");
+        searchInputEl.focus();
+      });
+    });
+
+    loadPapers();
+  </script>
+</body>
+</html>

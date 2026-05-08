@@ -753,6 +753,17 @@
     const prevPageButtonEl = document.getElementById("prevPageButton");
     const nextPageButtonEl = document.getElementById("nextPageButton");
 
+    function debounce(fn, delay) {
+      let timeoutId = null;
+      return function (...args) {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          fn(...args);
+          timeoutId = null;
+        }, delay);
+      };
+    }
+
     function normalize(text) {
       return (text || "")
         .toLowerCase()
@@ -1367,9 +1378,20 @@
       render();
     });
 
+    const debouncedRender = debounce(render, 300);
+    const debouncedFilterRender = debounce(() => {
+      state.page = 1;
+      render();
+    }, 500);
+
     searchInputEl.addEventListener("input", (event) => {
       state.query = event.target.value;
-      render();
+      debouncedRender();
+    });
+
+    scoreFilterEl.addEventListener("input", (event) => {
+      state.scoreFilter = Number(event.target.value) || 0;
+      debouncedFilterRender();
     });
 
     clearButtonEl.addEventListener("click", () => {

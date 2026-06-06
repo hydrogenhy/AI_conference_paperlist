@@ -9,5 +9,10 @@
     "id": "cvpr-2026",
     "name": "CVPR 2026",
     "file": "cvpr_2026_paper.txt"
+  },
+  {
+    "id": "kdd-2026",
+    "name": "KDD 2026",
+    "file": "kdd_2026_paper.txt"
   }
 ]

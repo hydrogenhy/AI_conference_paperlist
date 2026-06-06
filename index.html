@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ICML 2026 Paper Radar</title>
+  <title>Conference Paper Radar</title>
   <style>
     :root {
       --bg: #07111f;
@@ -170,6 +170,56 @@
 
     .search-box {
       position: relative;
+    }
+
+    .conference-control {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .conference-label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .conference-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .conference-select {
+      flex: 1 1 260px;
+      width: 100%;
+      min-height: 46px;
+      padding: 0 14px;
+      border: 1px solid rgba(112, 190, 255, 0.25);
+      border-radius: 14px;
+      background: rgba(6, 18, 33, 0.86);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+    }
+
+    .conference-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(79, 209, 255, 0.12);
+    }
+
+    .source-chip {
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 0 12px;
+      border: 1px solid rgba(111, 182, 255, 0.18);
+      border-radius: 14px;
+      background: rgba(7, 20, 35, 0.78);
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
     }
 
     .search-box input {
@@ -628,8 +678,8 @@
 <body>
   <main class="shell">
     <section class="hero">
-      <div class="eyebrow">ICML 2026 / Paper Radar</div>
-      <h1>ICML2026 论文检索页</h1>
+      <div class="eyebrow" id="heroConference">Conference / Paper Radar</div>
+      <h1 id="heroTitle">论文检索页</h1>
       <p>
         针对官网精确查找不方便的问题，这个页面会从本地文本文件读取论文列表，并提供标题、缩写、片段词和轻微拼写误差都能工作的模糊搜索。
         适合快速扫论文、找方向。
@@ -639,7 +689,15 @@
         <div class="panel search-panel">
           <div class="search-head">
             <h2>模糊搜索控制台</h2>
-            <div class="search-meta" id="searchMeta">LOADING / icml_2026_papers.txt</div>
+            <div class="search-meta" id="searchMeta">LOADING / paper/conferences.json</div>
+          </div>
+
+          <div class="conference-control">
+            <div class="conference-label">会议数据源</div>
+            <div class="conference-row">
+              <select class="conference-select" id="conferenceSelect" aria-label="选择会议"></select>
+              <div class="source-chip" id="conferenceSource">paper/conferences.json</div>
+            </div>
           </div>
 
           <div class="search-box">
@@ -682,8 +740,8 @@
               <div class="stat-label">keywords</div>
             </div>
           </div>
-          <p class="section-note">
-            当前列表来自 `icml_2026_papers.txt`，作者和摘要会自动补充并纳入检索权重。
+          <p class="section-note" id="dataSourceNote">
+            当前列表来自 `paper/icml_2026_paper.txt`，作者和摘要会自动补充并纳入检索权重。
           </p>
         </aside>
       </div>
@@ -718,14 +776,22 @@
   </main>
 
   <script>
-    const DATA_FILE = "icml_2026_paper.txt";
+    const MANIFEST_FILE = "paper/conferences.json";
+    const PAPER_DIR = "paper";
+    const FALLBACK_CONFERENCES = [
+      { id: "icml-2026", name: "ICML 2026", file: "icml_2026_paper.txt", default: true },
+      { id: "cvpr-2026", name: "CVPR 2026", file: "cvpr_2026_paper.txt" }
+    ];
     const PAGE_SIZE = 12;
     let papers = [];
+    let conferences = [];
+    let activeConference = null;
 
     const state = {
       query: "",
       page: 1,
-      scoreFilter: 80
+      scoreFilter: 80,
+      conferenceId: ""
     };
 
     const STOP_WORDS = new Set([
@@ -752,6 +818,11 @@
     const paginationPagesEl = document.getElementById("paginationPages");
     const prevPageButtonEl = document.getElementById("prevPageButton");
     const nextPageButtonEl = document.getElementById("nextPageButton");
+    const conferenceSelectEl = document.getElementById("conferenceSelect");
+    const conferenceSourceEl = document.getElementById("conferenceSource");
+    const dataSourceNoteEl = document.getElementById("dataSourceNote");
+    const heroConferenceEl = document.getElementById("heroConference");
+    const heroTitleEl = document.getElementById("heroTitle");
 
     function debounce(fn, delay) {
       let timeoutId = null;
@@ -779,6 +850,56 @@
 
     function unique(array) {
       return [...new Set(array)];
+    }
+
+    function formatConferenceName(file) {
+      const filename = String(file || "")
+        .split(/[\\/]/)
+        .pop()
+        .replace(/\.txt$/i, "");
+      const words = filename
+        .split(/[_-]+/)
+        .filter((word) => word && !["paper", "papers", "list"].includes(word.toLowerCase()));
+      return words
+        .map((word) => (/^[a-z]{2,6}$/i.test(word) ? word.toUpperCase() : word))
+        .join(" ");
+    }
+
+    function slugify(text) {
+      return normalize(text).replace(/\s+/g, "-") || `conference-${Date.now()}`;
+    }
+
+    function resolvePaperFile(file) {
+      const source = String(file || "").trim();
+      if (!source) return "";
+      if (/^(https?:)?\/\//i.test(source) || source.startsWith("/") || source.startsWith(`${PAPER_DIR}/`)) {
+        return source;
+      }
+      return `${PAPER_DIR}/${source}`;
+    }
+
+    function normalizeConference(item, index) {
+      const raw = typeof item === "string" ? { file: item } : item || {};
+      const file = raw.file || raw.path || raw.url || "";
+      const resolvedFile = resolvePaperFile(file);
+      const name = raw.name || raw.label || formatConferenceName(file);
+      return {
+        id: raw.id || slugify(name || file || `conference-${index + 1}`),
+        name: name || `Conference ${index + 1}`,
+        file: resolvedFile,
+        default: Boolean(raw.default)
+      };
+    }
+
+    function extractConferenceItems(manifest) {
+      if (Array.isArray(manifest)) return manifest;
+      if (Array.isArray(manifest.conferences)) return manifest.conferences;
+      if (Array.isArray(manifest.papers)) return manifest.papers;
+      return [];
+    }
+
+    function selectedConference() {
+      return activeConference || conferences[0] || null;
     }
 
     function initials(text) {
@@ -1172,6 +1293,8 @@
     }
 
     function createCard(paper, match) {
+      const conference = selectedConference();
+      const conferenceName = conference ? conference.name : "Conference";
       const abstractMissing = !paper.abstract || paper.abstract === "NOT_FOUND";
       const reasons = match.reasons.map((reason) => `<span class="reason-chip">${escapeHtml(reason)}</span>`).join("");
       const displayAbstract = abstractMissing ? "摘要未提供，当前主要基于标题进行检索。" : paper.abstract;
@@ -1190,7 +1313,7 @@
               <h3 class="paper-title">
                 <a href="${safeExternalUrl(paper.link)}" target="_blank" rel="noreferrer noopener">${highlightText(paper.title, state.query)}</a>
               </h3>
-              <div class="paper-meta">ICML 2026 · POSTER LINK</div>
+              <div class="paper-meta">${escapeHtml(conferenceName)} · POSTER LINK</div>
             </div>
             <div class="score-wrap">
               ${scoreHtml}
@@ -1225,9 +1348,21 @@
       return match ? match[1].trim() : "";
     }
 
-    function parsePaperText(text) {
-      return text
+    function splitPaperBlocks(text) {
+      const separatorBlocks = text
         .split(/^-{20,}\s*$/m)
+        .map((block) => block.trim())
+        .filter(Boolean);
+      if (separatorBlocks.length > 1) return separatorBlocks;
+
+      return text
+        .split(/(?=^ID:\s*\d+\.?\s*$)/m)
+        .map((block) => block.trim())
+        .filter((block) => /^ID:\s*\d+\.?/im.test(block));
+    }
+
+    function parsePaperText(text) {
+      return splitPaperBlocks(text)
         .map((block, index) => {
           const idText = getField(block, "ID");
           const idNumber = Number.parseInt(idText, 10);
@@ -1242,35 +1377,75 @@
         .filter((paper) => paper.title && paper.link);
     }
 
+    function renderConferenceSelect() {
+      conferenceSelectEl.innerHTML = conferences
+        .map((conference) => (
+          `<option value="${escapeHtml(conference.id)}">${escapeHtml(conference.name)}</option>`
+        ))
+        .join("");
+      if (state.conferenceId) {
+        conferenceSelectEl.value = state.conferenceId;
+      }
+      conferenceSelectEl.disabled = conferences.length <= 1;
+    }
+
+    function updateConferenceChrome() {
+      const conference = selectedConference();
+      const name = conference ? conference.name : "Conference";
+      const file = conference ? conference.file : "";
+      document.title = `${name} Paper Radar`;
+      heroConferenceEl.textContent = `${name} / Paper Radar`;
+      heroTitleEl.textContent = `${name} 论文检索页`;
+      conferenceSourceEl.textContent = file || MANIFEST_FILE;
+      dataSourceNoteEl.textContent = file
+        ? `当前列表来自 \`${file}\`，作者和摘要会自动补充并纳入检索权重。`
+        : "请选择一个会议数据源。";
+    }
+
     function showLoadError(error) {
+      const conference = selectedConference();
+      const file = conference ? conference.file : "";
       papers = [];
       updateStats();
-      searchMetaEl.textContent = "LOAD FAILED / icml_2026_papers.txt";
+      updateConferenceChrome();
+      searchMetaEl.textContent = `LOAD FAILED / ${file || "UNKNOWN SOURCE"}`;
       resultSummaryEl.textContent = "论文数据加载失败";
       resultsEl.innerHTML = `
         <div class="empty-state">
-          <strong>无法读取 icml_2026_papers.txt</strong>
+          <strong>无法读取 ${escapeHtml(file || "会议数据源")}</strong>
           <div class="empty-hint">
             ${escapeHtml(error.message || String(error))}
             <br>
-            如果是直接双击打开 HTML，浏览器可能会拦截本地文件读取；请在当前目录启动一个本地 HTTP 服务后访问页面。
+            如果是直接双击打开 HTML，浏览器可能会拦截本地文件读取；请在当前目录启动一个本地 HTTP 服务后访问页面。新增会议时，把 txt 放进 paper 文件夹，并在 paper/conferences.json 里补一条记录。
           </div>
         </div>
       `;
     }
 
-    async function loadPapers() {
-      searchMetaEl.textContent = `LOADING / ${DATA_FILE}`;
+    async function loadConference(conferenceId) {
+      const conference = conferences.find((item) => item.id === conferenceId) || conferences[0];
+      if (!conference) {
+        showLoadError(new Error("没有可用的会议数据源"));
+        return;
+      }
+
+      activeConference = conference;
+      state.conferenceId = conference.id;
+      state.page = 1;
+      renderConferenceSelect();
+      updateConferenceChrome();
+
+      searchMetaEl.textContent = `LOADING / ${conference.file}`;
       resultSummaryEl.textContent = "正在读取论文数据";
       resultsEl.innerHTML = `
         <div class="empty-state">
           <strong>正在加载论文列表</strong>
-          <div class="empty-hint">数据来自 ${DATA_FILE}</div>
+          <div class="empty-hint">数据来自 ${escapeHtml(conference.file)}</div>
         </div>
       `;
 
       try {
-        const response = await fetch(DATA_FILE, { cache: "no-store" });
+        const response = await fetch(conference.file, { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status} ${response.statusText}`);
         }
@@ -1281,6 +1456,33 @@
       } catch (error) {
         showLoadError(error);
       }
+    }
+
+    async function loadConferences() {
+      searchMetaEl.textContent = `LOADING / ${MANIFEST_FILE}`;
+      try {
+        const response = await fetch(MANIFEST_FILE, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
+        const manifest = await response.json();
+        conferences = extractConferenceItems(manifest)
+          .map((item, index) => normalizeConference(item, index))
+          .filter((conference) => conference.file);
+      } catch (error) {
+        conferences = FALLBACK_CONFERENCES.map((item, index) => normalizeConference(item, index));
+        searchMetaEl.textContent = `MANIFEST FALLBACK / ${error.message || String(error)}`;
+      }
+
+      if (!conferences.length) {
+        conferences = FALLBACK_CONFERENCES.map((item, index) => normalizeConference(item, index));
+      }
+
+      const defaultConference = conferences.find((conference) => conference.default) || conferences[0];
+      state.conferenceId = defaultConference.id;
+      activeConference = defaultConference;
+      renderConferenceSelect();
+      await loadConference(defaultConference.id);
     }
 
     function updateStats() {
@@ -1320,10 +1522,10 @@
 
       if (!query) {
         resultSummaryEl.textContent = `默认展示全部 ${papers.length} 篇论文，当前第 ${state.page} / ${totalPages} 页`;
-        searchMetaEl.textContent = `READY / ${papers.length} PAPERS INDEXED`;
+        searchMetaEl.textContent = `READY / ${selectedConference()?.name || "Conference"} / ${papers.length} PAPERS INDEXED`;
       } else {
         resultSummaryEl.textContent = `查询 "${query}" 命中 ${queryMatches.length} 篇论文，筛后保留 ${matches.length} 篇，当前第 ${state.page} / ${totalPages} 页`;
-        searchMetaEl.textContent = `QUERY / ${matches.length} MATCHES`;
+        searchMetaEl.textContent = `QUERY / ${selectedConference()?.name || "Conference"} / ${matches.length} MATCHES`;
       }
 
       paginationEl.hidden = matches.length <= PAGE_SIZE;
@@ -1409,6 +1611,10 @@
       render();
     });
 
+    conferenceSelectEl.addEventListener("change", (event) => {
+      loadConference(event.target.value);
+    });
+
     document.querySelectorAll("[data-query]").forEach((button) => {
       button.addEventListener("click", () => {
         setQuery(button.dataset.query || "");
@@ -1416,7 +1622,7 @@
       });
     });
 
-    loadPapers();
+    loadConferences();
   </script>
 </body>
 </html>

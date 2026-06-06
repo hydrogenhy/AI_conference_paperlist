@@ -1,0 +1,13 @@
+[
+  {
+    "id": "icml-2026",
+    "name": "ICML 2026",
+    "file": "icml_2026_paper.txt",
+    "default": true
+  },
+  {
+    "id": "cvpr-2026",
+    "name": "CVPR 2026",
+    "file": "cvpr_2026_paper.txt"
+  }
+]
